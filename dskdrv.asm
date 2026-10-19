@@ -50,6 +50,7 @@ SRVRDAT	equ  $8005	;* disk MP-S data register XXXXXXXX
 SRVRCTL	equ  $8008	;* disk MP-S control/status XXXXXXXX
 SRVRDAT	equ  $8009	;* disk MP-S data register XXXXXXXX
         ENDIF
+
 SIORDRF	equ  $01	;* receive data available mask XXXXXXXX
 SIOTDRE	equ  $02	;* ready to transmit mask XXXXXXXX
 ;
@@ -69,6 +70,7 @@ WS	equ  W+'S'	;* 'WS'
 ;* Disk driver jump table
 ;*-------------------------------------------------------------------
 	org  $BE80	;* 
+
 	jmp  read	;* ;read a sector
 	jmp  write	;* ;write a sector
 	jmp  exit0	;* ;verify sector (always true)
@@ -138,24 +140,24 @@ write	bsr  initIo	;* ;init for I/O XXXXXXXX
 ;
 ;* Server ready for write data. Send sector and verify response
 ;
-	clra ;send	;* 256 byte sector
-	ldx  reqBuf	;* ;X->caller's buffer
+	clra            ;* send 256 byte sector
+	ldx  reqBuf	;* X->caller's buffer
 	bsr  srvrSnd	;* 
 ;
-	ldaa #respLen	;* ;length of reponse
-	ldx  #cmdResp	;* ;receive response to write command
+	ldaa #respLen	;* length of reponse
+	ldx  #cmdResp	;* receive response to write command
 	jsr  srvrRcv	;* 
-	bne  retErr	;* ;error
+	bne  retErr	;* error
 ;
-	ldx  cmdResp	;* ;verify "WS" of "WSTA" received
+	ldx  cmdResp	;* verify "WS" of "WSTA" received
 	cpx  #WS 	;* 
 	bne  retErr	;* 
 ;
-	ldab crCode	;* ;verify zero (OK) response code
+	ldab crCode	;* verify zero (OK) response code
 	bne  retErr	;* 
 ;
 success	cli		;* (LABEL/NM only?)
-	clrb ;no 	;* errors
+	clrb            ;* no errors
 	rts		;* 
 ;
 ;*-------------------------------------------------------------------
@@ -210,7 +212,7 @@ select	ldaa 3,x	;* ;get drive number XXXXXXXX
 	anda #$03	;* ;limit to 0-3
 	staa reqDrv	;* ;save requested drive number
 ;	
-exit0	clrb ;no	;* error (carry clear, zero) XXXXXXXX
+exit0	clrb            ;* no error (carry clear, zero) XXXXXXXX
 	rts		;* 
 ;
 ;*-------------------------------------------------------------------
@@ -221,29 +223,29 @@ exit0	clrb ;no	;* error (carry clear, zero) XXXXXXXX
 ;*    X->buffer to send
 ;*    A=length of buffer to send
 ;*-------------------------------------------------------------------
-srvrSnd	sei  ;disable	;* interrupts XXXXXXXX
+srvrSnd	sei             ;* disable interrupts XXXXXXXX
 	staa xferLen	;* 
-	clr  chkSum	;* ;init checksum
+	clr  chkSum	;* init checksum
 	clr  chkSum+1	;* 
 ;
-ssLoop	ldaa chkSum+1	;* ;update 16 bit checksum XXXXXXXX
-	adda 0,x 	;* ;checksum LSB
+ssLoop	ldaa chkSum+1	;* update 16 bit checksum XXXXXXXX
+	adda 0,x 	;* checksum LSB
 	staa chkSum+1	;* 
-	ldaa chkSum	;* ;checksum MSB
+	ldaa chkSum	;* checksum MSB
 	adca #0 	;* 
 	staa chkSum	;* 
 ;
-	ldaa 0,x 	;* ;A=byte to send
-	bsr  ssByte	;* ;server send byte
+	ldaa 0,x 	;* A=byte to send
+	bsr  ssByte	;* server send byte
 	inx  ;point	;* to next byte
 	dec  xferLen	;* 
 	bne  ssLoop	;* 
 ;
 ;* Send checksum (2 bytes)
 ;
-	ldaa chkSum+1	;* ;LSB of checksum
+	ldaa chkSum+1	;* LSB of checksum
 	bsr  ssByte	;* 
-	ldaa chkSum	;* ;MSB of checksum
+	ldaa chkSum	;* MSB of checksum
 ;*			;* fall into ssByte
 ;
 ;*-------------------------------------------------------------------
@@ -271,33 +273,33 @@ ssByte	ldab SRVRCTL	;* ;loop until OK to send XXXXXXXX
 ;* srLoop is 87 cycles
 ;*-------------------------------------------------------------------
 srvrRcv	staa xferLen	;*
-	clr  chkSum	;* ;init checksum
+	clr  chkSum	;* init checksum
 	clr  chkSum+1	;* 
 ;
-srLoop	bsr  srByte	;* ;(43) get a byte XXXXXXXX
-	bne  srExit	;* ;(4) timeout error
-	staa 0,x 	;* ;(6) save byte in the buffer
+srLoop	bsr  srByte	;* (43) get a byte XXXXXXXX
+	bne  srExit	;* (4) timeout error
+	staa 0,x 	;* (6) save byte in the buffer
 ;
-	adda chkSum+1	;* ;(4) update checksum
-	staa chkSum+1	;* ;(5)
-	ldaa chkSum	;* ;(4) checksum MSB
-	adca #0 	;* ;(2)
-	staa chkSum	;* ;(5)
+	adda chkSum+1	;* (4) update checksum
+	staa chkSum+1	;* (5)
+	ldaa chkSum	;* (4) checksum MSB
+	adca #0 	;* (2)
+	staa chkSum	;* (5)
 ;
 	inx  ;(4)	;* increment buffer pointer
-	dec  xferLen	;* ;(6)
-	bne  srLoop	;* ;(4)
+	dec  xferLen	;* (6)
+	bne  srLoop	;* (4)
 ;
 ;* Receive and compare 16 bit checksum
 ;
-	bsr  srByte	;* ;get LSB of checksum
-	bne  srExit	;* ;timeout error
-	cmpa chkSum+1	;* ;match?
-	bne  srExit	;* ;no
+	bsr  srByte	;* get LSB of checksum
+	bne  srExit	;* timeout error
+	cmpa chkSum+1	;* match?
+	bne  srExit	;* no
 ;		
-	bsr  srByte	;* ;get MSB of checksum
-	bne  srExit	;* ;timeout
-	cmpa chkSum	;* ;match?
+	bsr  srByte	;* get MSB of checksum
+	bne  srExit	;* timeout
+	cmpa chkSum	;* match?
 ;
 srExit	rts  ;return	;* with status XXXXXXXX
 ;
@@ -307,26 +309,26 @@ srExit	rts  ;return	;* with status XXXXXXXX
 ;*
 ;* srb3ms does the same thing but with a 3ms timeout
 ;*-------------------------------------------------------------------
-srb3ms	stx  saveX	;* ;preserve X XXXXXXXX
-	ldx  #83 	;* ;3ms timeout
+srb3ms	stx  saveX	;* preserve X XXXXXXXX
+	ldx  #83 	;* 3ms timeout
 	bra  srbLoop	;* 
 ;
-srByte	stx  saveX	;* ;(6) preserve X XXXXXXXX
-	ldx  #27778	;* ;(3) 1 second (18 cycles, 36us per loop)
+srByte	stx  saveX	;* (6) preserve X XXXXXXXX
+	ldx  #27778	;* (3) 1 second (18 cycles, 36us per loop)
 ;	
-srbLoop	ldaa SRVRCTL	;* ;(4) new byte available? XXXXXXXX
-	lsra ;(2)	;* 
-	bcs  srbNew	;* ;(4) yes
-	dex  ;(4)	;* 
-	bne  srbLoop	;* ;(4)
+srbLoop	ldaa SRVRCTL	;* (4) new byte available? XXXXXXXX
+	lsra            ;* (2)
+	bcs  srbNew	;* (4) yes
+	dex             ;* (4)
+	bne  srbLoop	;* (4)
 ;
-	ldx  saveX	;* ;(5) restore X (zero is now false)
-	rts  ;(5)	;* 
+	ldx  saveX	;* (5) restore X (zero is now false)
+	rts             ;* (5)
 ;
-srbNew	ldaa SRVRDAT	;* ;(4) get the new byte XXXXXXXX
-	ldx  saveX	;* ;(5) restore X
-	bita #0 	;* ;(2) clear zero flag
-	rts  ;(5)	;* 
+srbNew	ldaa SRVRDAT	;* (4) get the new byte XXXXXXXX
+	ldx  saveX	;* (5) restore X
+	bita #0 	;* (2) clear zero flag
+	rts             ;* (5)
 ;
 ;*-------------------------------------------------------------------
 ;* Initialized data
